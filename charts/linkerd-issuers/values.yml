@@ -1,3 +1,8 @@
+# https://linkerd.io/2.11/tasks/install-helm/
+# https://linkerd.io/2.11/tasks/generate-certificates/
+# https://linkerd.io/2.11/tasks/automatically-rotating-control-plane-tls-credentials/
+# https://linkerd.io/2.11/getting-started/
+
 certificate:
   controlplane:
     # duration is the number of hours for controlplane certification expiration

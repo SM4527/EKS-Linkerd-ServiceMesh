@@ -1,87 +1,105 @@
-# Linkerd Installtion into Kubernetes
+<p align="center">
 
-This repo contains Terraform code to install the linkerd service mesh into Kubernetes.  It creates the certificates required by linkerd and installs using helm charts  Cert-Manager in the cluster is required.
+![Kubernetes](https://img.shields.io/badge/kubernetes-%23326ce5.svg?style=for-the-badge&logo=kubernetes&logoColor=white) ![AWS](https://img.shields.io/badge/AWS-%23FF9900.svg?style=for-the-badge&logo=amazon-aws&logoColor=white) ![Terraform](https://img.shields.io/badge/terraform-%235835CC.svg?style=for-the-badge&logo=terraform&logoColor=white) ![Docker](https://img.shields.io/badge/docker-%230db7ed.svg?style=for-the-badge&logo=docker&logoColor=white) ![Nginx](https://img.shields.io/badge/nginx-%23009639.svg?style=for-the-badge&logo=nginx&logoColor=white) ![Shell Script](https://img.shields.io/badge/shell_script-%23121011.svg?style=for-the-badge&logo=gnu-bash&logoColor=white)
 
-## Example
-~~~~
-module "service_mesh" {
-  source = "https://github.com/Azure-Terraform/terraform-helm-linkerd"
+![Stars](https://img.shields.io/github/stars/SM4527/EKS-Linkerd-ServiceMesh?style=for-the-badge) ![Forks](https://img.shields.io/github/forks/SM4527/EKS-Linkerd-ServiceMesh?style=for-the-badge) ![Issues](https://img.shields.io/github/issues/SM4527/EKS-Linkerd-ServiceMesh?style=for-the-badge) ![License](https://img.shields.io/github/license/SM4527/EKS-Linkerd-ServiceMesh?style=for-the-badge)
 
-  # required values
-  chart_version               = "2.10.1"
-  ca_cert_expiration_hours    = 8760  # 1 year
-  trust_anchor_validity_hours = 17520 # 2 years
-  issuer_validity_hours       = 8760  # 1 year (must be shorter than the trusted anchor)
+</p>
 
-  # optional value for linkerd config (in this case, override the default 'clockSkewAllowance' of 20s (for example purposes))
-  additional_yaml_config = yamlencode({ "identity" : { "issuer" : { "clockSkewAllowance" : "30s" } } })
-}
-~~~~
+# Project Title
 
-## Quick start
+EKS-Linkerd-ServiceMesh [![Tweet](https://img.shields.io/twitter/url/http/shields.io.svg?style=social)](https://twitter.com/intent/tweet?text=EKS%20-%20Linkerd%20-%20ServiceMesh&url=https://github.com/SM4527/EKS-Linkerd-ServiceMesh)
 
-1. Install [Terraform](https://learn.hashicorp.com/tutorials/terraform/install-cli).
-2. Confirm you are running required/pinned version of terraform
+## Description
+
+Deploy Linkerd Service Mesh on an EKS cluster using Terraform and Helm.  Deploy the sample Emojivoto application and inject the light-weight Linkerd sidecar into the deployments. Diagnose the meshed deployments that are less than a 100% success rate. Tap the ones in failure to analyze more. Visualize the same using Grafana dashboards as well.
+
+<p align="center">
+
+![image]()
+
+</p>
+
+## Getting Started
+
+### Dependencies
+
+* Docker
+* AWS user with programmatic access and high privileges 
+* Linux terminal
+* Deploy an [EKS K8 Cluster](https://github.com/SM4527/EKS-Terraform) with Self managed Worker nodes on AWS using Terraform.
+* * Deploy a [NGINX Ingress](https://github.com/SM4527/EKS-Nginx-Ingress) on the above EKS cluster (Pod->service->Ingress->ELB+ACM->Route 53->Domain URL).
+
+### Installing
+
+* Clone the repository
+* Set environment variable TF_VAR_AWS_PROFILE
+* Review terraform variable values in variables.tf, locals.tf
+* Override values in the Helm chart through the "chart_values.yaml" file
+* Update kubernetes.tf with the AWS S3 bucket name and key name from the output of the [EKS K8 Cluster](https://github.com/SM4527/EKS-Terraform/blob/master/outputs.tf)
+
+### Executing program
+
+* Configure AWS user with AWS CLI.
 
 ```
-terraform version
+docker-compose run --rm aws configure --profile $TF_VAR_AWS_PROFILE
+
+docker-compose run --rm aws sts get-caller-identity
 ```
 
-3. Deploy the code:
+* Specify appropriate Terraform workspace.
 
 ```
-terraform init
-terraform plan -out config.plan
-terraform apply config.plan
+docker-compose run --rm terraform workspace show
+
+docker-compose run --rm terraform workspace select default
 ```
 
-Notes:
+* Run Terraform apply to create the EKS cluster, k8 worker nodes and related AWS resources.
 
 ```
+./run-docker-compose.sh terraform init
+
+./run-docker-compose.sh terraform validate
+
+./run-docker-compose.sh terraform plan
+
+./run-docker-compose.sh terraform apply
 ```
 
-<!--- BEGIN_TF_DOCS --->
-## Requirements
+* Verify kubectl calls and ensure Deployments, Services and Pod are in Running status.
 
-| Name | Version |
-|------|---------|
-| terraform | >= 0.14.0 |
-| helm | >= 2.1.0 |
-| kubernetes | >= 1.13.3 |
-| local | >= 2.0.0 |
-| null | >= 3.0.0 |
-| tls | >= 3.0.0 |
+```
+./run-docker-compose.sh kubectl get all -n linkerd
+./run-docker-compose.sh kubectl get all -n linkerd-viz
+./run-docker-compose.sh kubectl get all -n emojivoto
+```
 
-## Providers
+* View Linkerd dashboard and the sample emojivoto application dashboard using the links below (replace with your domain name)
 
-| Name | Version |
-|------|---------|
-| helm | >= 2.1.0 |
-| kubernetes | >= 1.13.3 |
-| time | n/a |
-| tls | >= 3.0.0 |
+Linkerd: https://linkerd.devopsdemos.com
 
-## Inputs
+Emojivoto: https://emojivoto.devopsdemos.com
 
-| Name | Description | Type | Default | Required |
-|------|-------------|------|---------|:--------:|
-| additional\_yaml\_config | used for additional customization of the linkerd helm chart values | `string` | `""` | no |
-| ca\_cert\_expiration\_hours | Number of hours added to installation time to calculate trust anchor certification expiration date | `number` | `8760` | no |
-| certificate\_controlplane\_duration | Number of hours for controlplane certification expiration | `string` | `"1440h"` | no |
-| certificate\_controlplane\_renewbefore | Number of hours before the control plane certification expiration to request for certificate renewal | `string` | `"48h"` | no |
-| certificate\_webhook\_duration | Number of hours for webhook certification expiration | `string` | `"1440h"` | no |
-| certificate\_webhook\_renewbefore | Number of hours before the webhook certification expiration to request for certificate renewal | `string` | `"48h"` | no |
-| chart\_repository | Helm chart repository | `string` | `"https://helm.linkerd.io/stable"` | no |
-| chart\_version | Helm chart version | `string` | `"2.10.1"` | no |
-| issuer\_validity\_hours | Number of hours for which the issuer certification is valid (must be shorter than the trust anchor) | `number` | `8760` | no |
-| jaeger\_additional\_yaml\_config | used for additional customization of the linkerd-jaeger helm chart values | `string` | `""` | no |
-| linkerd\_helm\_install\_timeout\_secs | The number of seconds to wait for the linkerd chart to be deployed. the default is 900 (15 minutes) | `string` | `"900"` | no |
-| namespaces | Namespaces for linkerd and optional extensions | `set(string)` | <pre>[<br>  "linkerd",<br>  "linkerd-viz"<br>]</pre> | no |
-| trust\_anchor\_validity\_hours | Number of hours for which the trust anchor certification is valid | `number` | `17520` | no |
-| viz\_additional\_yaml\_config | used for additional customization of the linkerd-viz helm chart values | `string` | `""` | no |
+## Help
 
-## Outputs
 
-No output.
+## Authors
 
-<!--- END_TF_DOCS --->
+[Sivanandam Manickavasagam](https://www.linkedin.com/in/sivanandammanickavasagam)
+
+## Version History
+
+* 0.1
+    * Initial Release
+
+## License
+
+This project is licensed under the MIT License - see the LICENSE file for details
+
+## Repo rosters
+
+### Stargazers
+
+[![Stargazers repo roster for @SM4527/EKS-Linkerd-ServiceMesh](https://reporoster.com/stars/dark/SM4527/EKS-Linkerd-ServiceMesh)](https://github.com/SM4527/EKS-Linkerd-ServiceMesh/stargazers)

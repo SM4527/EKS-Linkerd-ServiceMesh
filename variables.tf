@@ -1,6 +1,10 @@
 # ---------------------------------------------------------------------------------------------------------------------
 # required variables used for deployment of linkerd in K8s
 # ---------------------------------------------------------------------------------------------------------------------
+variable "AWS_PROFILE" {
+   type=string
+}
+
 variable "chart_repository" {
   description = "Helm chart repository"
   type        = string
@@ -10,7 +14,7 @@ variable "chart_repository" {
 variable "chart_version" {
   description = "Helm chart version"
   type        = string
-  default     = "2.10.1"
+  default     = "2.11.1"
 }
 
 variable "trust_anchor_validity_hours" {
@@ -92,9 +96,28 @@ variable "certificate_webhook_renewbefore" {
   default     = "48h"
 }
 
-
 variable "linkerd_helm_install_timeout_secs" {
   description = "The number of seconds to wait for the linkerd chart to be deployed. the default is 900 (15 minutes)"
   type = string
-  default = "900"
+  default = "600"
+}
+
+variable "clientID" {
+  description = "oAuth2 clientID ( set in terraform.tfvars )"
+  type = string
+  default = ""
+}
+
+variable "clientSecret" {
+  description = "oAuth2 clientSecret ( set in terraform.tfvars )"
+  type = string
+  default = ""
+}
+
+variable "cookieSecret" {
+  description = "oAuth2 cookieSecret (set in terraform.tfvars)"
+  # Create a new cookieSecret with the following command
+  # python3 -c 'import os,base64; a = base64.b64encode(os.urandom(16)); print(F"the: {a}")'
+  type = string
+  default = ""
 }

@@ -1,99 +1,29 @@
+# https://linkerd.io/2.11/getting-started/
+# https://linkerd.io/2.10/tasks/using-ingress/#nginx
+
 resource "time_static" "cert_create_time" {
 }
 
-locals {
-  # set certification expiration date for the number of hours specified
-  cert_expiration_date = timeadd(time_static.cert_create_time.rfc3339, "${var.ca_cert_expiration_hours}h")
-}
-
-# create certificates for the trust anchor and issuer
-#
-resource "tls_private_key" "linkerd" {
-  for_each    = toset(["trust_anchor", "issuer"])
-  algorithm   = "ECDSA"
-  ecdsa_curve = "P256"
-}
-
-# Control Plane TLS Credentials
-resource "tls_self_signed_cert" "linkerd-trust-anchor" {
-  key_algorithm     = tls_private_key.linkerd["trust_anchor"].algorithm
-  private_key_pem   = tls_private_key.linkerd["trust_anchor"].private_key_pem
-  is_ca_certificate = true
-
-  validity_period_hours = var.trust_anchor_validity_hours
-
-  allowed_uses = ["cert_signing", "crl_signing", "server_auth", "client_auth"]
-
-  subject {
-    common_name = "root.linkerd.cluster.local"
-  }
-}
-
-# Webhook TLS Credentials
-resource "tls_self_signed_cert" "linkerd-issuer" {
-  key_algorithm     = tls_private_key.linkerd["issuer"].algorithm
-  private_key_pem   = tls_private_key.linkerd["issuer"].private_key_pem
-  is_ca_certificate = true
-
-  validity_period_hours = var.issuer_validity_hours
-
-  allowed_uses = ["cert_signing", "crl_signing"]
-
-  subject {
-    common_name = "webhook.linkerd.cluster.local"
-  }
-}
-
-#
-# END
-
-# create namespaces for linkerd and any extensions (linkerd-viz or linkerd-jaeger)
-resource "kubernetes_namespace" "namespace" {
-  for_each = var.namespaces
-  metadata {
-    name        = each.key
-    annotations = (each.key != "linkerd") ? { "linkerd.io/inject" = "enabled" } : {}
-    labels      = (each.key != "linkerd") ? { "linkerd.io/extension" = trimprefix(each.key, "linkerd-") } : {}
-  }
-}
-
-# create secret used for the control plane credentials
-resource "kubernetes_secret" "linkerd-trust-anchor" {
-  depends_on = [kubernetes_namespace.namespace]
-
-  type = "kubernetes.io/tls"
-
-  metadata {
-    name      = "linkerd-trust-anchor"
-    namespace = "linkerd"
-  }
-
-  data = {
-    "tls.crt" : tls_self_signed_cert.linkerd-trust-anchor.cert_pem
-    "tls.key" : tls_private_key.linkerd["trust_anchor"].private_key_pem
-  }
-}
-
-# create secrets used for the webhook credentials
-resource "kubernetes_secret" "linkerd-issuer" {
-  depends_on = [kubernetes_namespace.namespace]
-
-  type = "kubernetes.io/tls"
-
-  for_each = var.namespaces
-  metadata {
-    name      = "webhook-issuer-tls"
-    namespace = each.key
-  }
-
-  data = {
-    "tls.crt" : tls_self_signed_cert.linkerd-issuer.cert_pem
-    "tls.key" : tls_private_key.linkerd["issuer"].private_key_pem
+# Create cert-manager
+# https://linkerd.io/2.11/tasks/automatically-rotating-control-plane-tls-credentials/
+# https://cert-manager.io/docs/installation/helm/
+  resource "helm_release" "cert-manager" {
+  depends_on = [local_file.kubeconfig_EKS_Cluster]
+  name       = "cert-manager"
+  chart      = "cert-manager"
+  repository = "https://charts.jetstack.io"
+  version    = "v1.7.1"
+  namespace        = "cert-manager"
+  create_namespace = true
+  timeout    = var.linkerd_helm_install_timeout_secs
+  set {
+    name  = "installCRDs"
+    value = "true"
   }
 }
 
 resource "helm_release" "issuer" {
-  depends_on = [kubernetes_secret.linkerd-trust-anchor]
+  depends_on = [kubernetes_secret.linkerd-trust-anchor,kubernetes_secret.linkerd-issuer]
   name       = "linkerd-issuer"
   namespace  = "linkerd"
   chart      = "${path.module}/charts/linkerd-issuers"
@@ -117,7 +47,7 @@ resource "helm_release" "issuer" {
 }
 
 resource "helm_release" "linkerd" {
-  depends_on = [kubernetes_namespace.namespace, helm_release.issuer]
+  depends_on = [helm_release.issuer]
 
   name       = "linkerd"
   chart      = "linkerd2"
@@ -152,7 +82,7 @@ resource "helm_release" "linkerd" {
 }
 
 resource "helm_release" "linkerd-viz" {
-  depends_on = [helm_release.linkerd]
+  depends_on = [helm_release.issuer, helm_release.linkerd]
 
   count = contains(var.namespaces, "linkerd-viz") ? 1 : 0
 
@@ -181,7 +111,7 @@ resource "helm_release" "linkerd-viz" {
 }
 
 resource "helm_release" "linkerd-jaeger" {
-  depends_on = [helm_release.linkerd-viz]
+  depends_on = [helm_release.issuer]
 
   count = contains(var.namespaces, "linkerd-jaeger") ? 1 : 0
 
@@ -202,5 +132,34 @@ resource "helm_release" "linkerd-jaeger" {
       }
     }),
     var.jaeger_additional_yaml_config
+  ]
+}
+
+# https://artifacthub.io/packages/helm/oauth2-proxy/oauth2-proxy
+# https://linkerd.io/2.10/tasks/exposing-dashboard/
+# https://blog.donbowman.ca/2019/02/14/using-single-sign-on-oauth2-across-many-sites-in-kubernetes/
+
+resource "helm_release" "oauth2-proxy" {
+  depends_on = [kubernetes_secret.oauth2-proxy]
+
+  count = contains(var.namespaces, "linkerd-viz") ? 1 : 0
+
+  name       = "oauth2-proxy"
+  chart      = "oauth2-proxy"
+  repository = "https://oauth2-proxy.github.io/manifests"
+  version    = "6.0.0"
+  namespace        = "linkerd-viz"
+  create_namespace = false
+  timeout    = var.linkerd_helm_install_timeout_secs
+
+  values = [
+    yamlencode({
+      installNamespace = false
+      webhook = {
+        externalSecret = true
+        caBundle       = tls_self_signed_cert.linkerd-issuer.cert_pem
+      }
+    }),
+    "${file("./charts/oauth2-proxy/values.yaml")}"
   ]
 }

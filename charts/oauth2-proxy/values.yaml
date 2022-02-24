@@ -1,0 +1,30 @@
+# https://linkerd.io/2.10/tasks/exposing-dashboard/
+# https://www.digitalocean.com/community/tutorials/how-to-protect-private-kubernetes-services-behind-a-github-login-with-oauth2_proxy
+# https://blog.donbowman.ca/2019/02/14/using-single-sign-on-oauth2-across-many-sites-in-kubernetes/
+# https://oauth2-proxy.github.io/oauth2-proxy/
+# https://github.com/helm/charts/blob/master/stable/oauth2-proxy/values.yaml
+# https://github.com/oauth2-proxy/manifests/blob/main/helm/oauth2-proxy/values.yaml
+
+config:
+  existingSecret: oauth2-proxy
+  #clientID: 
+  #clientSecret: 
+  # Create a new cookieSecret with the following command
+  # python3 -c 'import os,base64; a = base64.b64encode(os.urandom(16)); print(F"the: {a}")'
+  #cookieSecret: 
+  configFile: |-
+    pass_basic_auth = false
+    pass_access_token = true
+    set_authorization_header = true
+    pass_authorization_header = true
+
+# https://github.com/oauth2-proxy/oauth2-proxy/issues/622
+extraArgs:
+  provider: github
+  scope: "read:org,user:email"
+  email-domain: "*"
+  cookie-domain: "devopsdemos.com"
+  upstream: file:///dev/null
+  #http-address: "0.0.0.0:4180"
+  #enforcedHostRegexp: ".*"
+
