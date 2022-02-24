@@ -12,11 +12,11 @@ EKS-Linkerd-ServiceMesh [![Tweet](https://img.shields.io/twitter/url/http/shield
 
 ## Description
 
-Deploy Linkerd Service Mesh on an EKS cluster using Terraform and Helm.  Deploy the sample Emojivoto application and inject the light-weight Linkerd sidecar into the deployments. Diagnose the meshed deployments that are less than a 100% success rate. Tap the ones in failure to analyze more. Visualize the same using Grafana dashboards as well.
+Deploy Linkerd Service Mesh on an EKS cluster using Terraform and Helm.  Deploy the sample Emojivoto application and inject the light-weight Linkerd sidecar into it's deployments. Diagnose the meshed deployments that are less than a 100% success rate. Tap the ones in failure to analyze the cause. Visualize the key metrics using Grafana dashboards.
 
 <p align="center">
 
-![image]()
+![image](https://user-images.githubusercontent.com/78129381/155463867-99beb9c5-6bcf-4e02-8064-a6f4171991bb.png)
 
 </p>
 
@@ -78,9 +78,9 @@ docker-compose run --rm terraform workspace select default
 
 * View Linkerd dashboard and the sample emojivoto application dashboard using the links below (replace with your domain name)
 
-Linkerd: https://linkerd.devopsdemos.com
+Linkerd: Domain Https URL, prefixed by linkerd
 
-Emojivoto: https://emojivoto.devopsdemos.com
+Emojivoto: Domain Https URL, prefixed by emojivoto
 
 ## Help
 
