@@ -12,7 +12,7 @@ EKS-Linkerd-ServiceMesh [![Tweet](https://img.shields.io/twitter/url/http/shield
 
 ## Description
 
-Deploy Linkerd Service Mesh on an EKS cluster using Terraform and Helm.  Deploy the sample Emojivoto application and inject the light-weight Linkerd sidecar into it's deployments. Diagnose the meshed deployments that are less than a 100% success rate. Tap the ones in failure to analyze the cause. Visualize the key metrics using Grafana dashboards.
+Deploy Linkerd Service Mesh on an EKS cluster using Terraform and Helm. Deploy the sample Emojivoto application and inject the lightweight Linkerd sidecar into its deployments. Diagnose the deployments that are less than a 100% success rate. Tap the ones in failure to analyze the cause. Visualize the key metrics using Grafana dashboards.
 
 <p align="center">
 
